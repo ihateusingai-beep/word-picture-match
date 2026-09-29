@@ -141,7 +141,7 @@ input.name:focus{border-color:#2b8ad9;box-shadow:0 0 0 4px rgba(43,138,217,.2)}
       <div class="diff-grid">
         <button type="button" class="diff-btn easy" data-diff="easy">
           <span class="ico">🟢</span>
-          <span><div>初級</div><div class="meta">5 次機會 · 每題 4 選 1</div></span>
+          <span><div>初級</div><div class="meta">5 次機會 · 每題 2 選 1</div></span>
         </button>
         <button type="button" class="diff-btn mid" data-diff="mid">
           <span class="ico">🟡</span>
@@ -149,7 +149,7 @@ input.name:focus{border-color:#2b8ad9;box-shadow:0 0 0 4px rgba(43,138,217,.2)}
         </button>
         <button type="button" class="diff-btn hard" data-diff="hard">
           <span class="ico">🔴</span>
-          <span><div>高級</div><div class="meta">2 次機會 · 每題 2 選 1</div></span>
+          <span><div>高級</div><div class="meta">2 次機會 · 每題 4 選 1</div></span>
         </button>
       </div>
     </div>
@@ -216,9 +216,9 @@ const QUESTIONS = [
 ];
 
 const DIFF = {
-  easy: { lives:5, choices:4, label:"初級", emoji:"🟢" },
+  easy: { lives:5, choices:2, label:"初級", emoji:"🟢" },
   mid:  { lives:3, choices:3, label:"中級", emoji:"🟡" },
-  hard: { lives:2, choices:2, label:"高級", emoji:"🔴" }
+  hard: { lives:2, choices:4, label:"高級", emoji:"🔴" }
 };
 const Q_MS = 10 * 1000;
 const REVEAL_MS = 3000;
