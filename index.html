@@ -27,6 +27,15 @@ label.field{display:block;font-size:1.15rem;font-weight:800;margin:10px 0 6px;co
 input.name{width:100%;font-size:1.35rem;font-weight:800;padding:14px 16px;border:3px solid #7eb8e8;
   border-radius:16px;background:#f0f8ff;outline:none;min-height:56px}
 input.name:focus{border-color:#2b8ad9;box-shadow:0 0 0 4px rgba(43,138,217,.2)}
+.time-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:8px 0 14px}
+.time-btn{min-height:56px;border-radius:14px;border:3px solid #90CAF9;background:#F5FBFF;
+  font-size:1.15rem;font-weight:900;color:#1565C0;cursor:pointer}
+.time-btn.on{background:#1E88E5;border-color:#1565C0;color:#fff;box-shadow:0 3px 0 #0D47A1}
+.time-btn:active{transform:scale(.97)}
+.speak-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:160px;
+  min-height:56px;margin:0 auto 12px;padding:10px 18px;border-radius:16px;border:4px solid #7E57C2;
+  background:#EDE7F6;color:#4527A0;font-size:1.25rem;font-weight:900;cursor:pointer}
+.speak-btn:active{transform:scale(.97)}
 .diff-grid{display:grid;gap:12px;margin:16px 0 8px}
 .diff-btn{display:flex;align-items:center;gap:12px;justify-content:flex-start;min-height:80px;
   padding:14px 18px;border-radius:18px;border:4px solid transparent;font-size:1.35rem;font-weight:900;
@@ -121,7 +130,14 @@ input.name:focus{border-color:#2b8ad9;box-shadow:0 0 0 4px rgba(43,138,217,.2)}
       </p>
       <label class="field" for="playerName">你的名字（可選）</label>
       <input class="name" id="playerName" type="text" maxlength="12" placeholder="例如：小明" autocomplete="off">
-      <p style="font-size:1.1rem;font-weight:800;margin:16px 0 4px;color:#1e5a8a">選擇難度</p>
+      <p style="font-size:1.1rem;font-weight:800;margin:16px 0 4px;color:#1e5a8a">遊戲時間</p>
+      <div class="time-grid" id="timeGrid" role="group" aria-label="遊戲時間">
+        <button type="button" class="time-btn" data-min="1">1 分</button>
+        <button type="button" class="time-btn" data-min="2">2 分</button>
+        <button type="button" class="time-btn on" data-min="3">3 分</button>
+        <button type="button" class="time-btn" data-min="5">5 分</button>
+      </div>
+      <p style="font-size:1.1rem;font-weight:800;margin:8px 0 4px;color:#1e5a8a">選擇難度</p>
       <div class="diff-grid">
         <button type="button" class="diff-btn easy" data-diff="easy">
           <span class="ico">🟢</span>
@@ -154,6 +170,7 @@ input.name:focus{border-color:#2b8ad9;box-shadow:0 0 0 4px rgba(43,138,217,.2)}
           <div class="feedback" id="fbIcon"></div>
         </div>
         <div class="q-prompt">揀正確嘅詞語</div>
+        <button type="button" class="speak-btn" id="speakBtn" aria-label="廣東話讀題">🔊 讀題</button>
         <div class="opts" id="opts"></div>
         <div class="bar-wrap"><div class="bar" id="qBar"></div></div>
       </div>
@@ -203,17 +220,18 @@ const DIFF = {
   mid:  { lives:3, choices:3, label:"中級", emoji:"🟡" },
   hard: { lives:2, choices:2, label:"高級", emoji:"🔴" }
 };
-const TOTAL_MS = 3 * 60 * 1000;
 const Q_MS = 10 * 1000;
 const REVEAL_MS = 3000;
 const LABELS = ["A","B","C","D"];
+const DEFAULT_TOTAL_MS = 3 * 60 * 1000;
 
 const S = {
   name: "",
   diff: "easy",
   score: 0,
   lives: 5,
-  totalLeft: TOTAL_MS,
+  totalMs: DEFAULT_TOTAL_MS,
+  totalLeft: DEFAULT_TOTAL_MS,
   qLeft: Q_MS,
   locked: false,
   order: [],
@@ -264,6 +282,32 @@ function tone(freq, dur, type, vol){
 function sfxOk(){ tone(523,.12,"sine",.14); setTimeout(()=>tone(659,.12,"sine",.14),90); setTimeout(()=>tone(784,.18,"sine",.16),180); }
 function sfxBad(){ tone(220,.2,"triangle",.12); setTimeout(()=>tone(180,.25,"triangle",.1),120); }
 function sfxEnd(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.2,"sine",.14), i*120)); }
+function pickZhHkVoice(){
+  const voices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  const prefer = [/zh[-_]hk/i, /yue/i, /cantonese/i, /hong\s*kong/i, /中文.*香港|香港.*中文/];
+  for(const re of prefer){
+    const v = voices.find(x => re.test(x.lang) || re.test(x.name));
+    if(v) return v;
+  }
+  return voices.find(x => /^zh/i.test(x.lang)) || null;
+}
+function speakWord(text){
+  if(!text || !window.speechSynthesis) return;
+  try{
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(String(text));
+    u.lang = "zh-HK";
+    u.rate = 0.9;
+    u.pitch = 1.05;
+    const v = pickZhHkVoice();
+    if(v) u.voice = v;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function speakQuestion(){
+  if(!S.cur) return;
+  speakWord(S.cur.word);
+}
 function startBgm(){
   if(S.muted || bgPlaying) return;
   ensureAudio();
@@ -332,6 +376,7 @@ function nextQuestion(){
   renderOptions(S.cur);
   updateHud();
   startQTimer();
+  setTimeout(speakQuestion, 180);
 }
 
 function renderOptions(q){
@@ -467,14 +512,21 @@ function endGame(){
   show("s-end");
 }
 
+function getSelectedTotalMs(){
+  const on = document.querySelector(".time-btn.on");
+  const min = on ? parseInt(on.dataset.min, 10) : 3;
+  return (Number.isFinite(min) && min > 0 ? min : 3) * 60 * 1000;
+}
 function startGame(diff){
   ensureAudio();
+  if(window.speechSynthesis) speechSynthesis.getVoices();
   startBgm();
   S.name = ($("playerName").value || "").trim().slice(0,12);
   S.diff = diff;
   S.score = 0;
   S.lives = DIFF[diff].lives;
-  S.totalLeft = TOTAL_MS;
+  S.totalMs = getSelectedTotalMs();
+  S.totalLeft = S.totalMs;
   S.qLeft = Q_MS;
   S.locked = false;
   S.ended = false;
@@ -487,21 +539,35 @@ function startGame(diff){
 }
 
 // Wire UI
+document.querySelectorAll(".time-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".time-btn").forEach(b => b.classList.remove("on"));
+    btn.classList.add("on");
+  });
+});
 document.querySelectorAll(".diff-btn").forEach(btn => {
   btn.addEventListener("click", () => startGame(btn.dataset.diff));
 });
+$("speakBtn").addEventListener("click", () => speakQuestion());
 $("btnAgain").addEventListener("click", () => {
   clearTimers();
   stopBgm();
+  if(window.speechSynthesis) speechSynthesis.cancel();
   show("s-start");
 });
 $("btnPrint").addEventListener("click", () => window.print());
 $("muteBtn").addEventListener("click", () => {
   S.muted = !S.muted;
   $("muteBtn").textContent = S.muted ? "🔇" : "🔊";
-  if(S.muted) stopBgm();
-  else if(!S.ended && $("s-play").classList.contains("on")) startBgm();
+  if(S.muted){
+    stopBgm();
+    if(window.speechSynthesis) speechSynthesis.cancel();
+  } else if(!S.ended && $("s-play").classList.contains("on")) startBgm();
 });
+if(window.speechSynthesis){
+  speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+}
 
 // Prevent image drag / gesture extras
 document.addEventListener("dragstart", e => e.preventDefault());
